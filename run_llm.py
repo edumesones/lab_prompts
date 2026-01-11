@@ -11,11 +11,27 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+def get_model_from_env(env_var: str, default_model: str) -> str:
+    """
+    Read model name from environment variable with fallback to default.
+
+    Args:
+        env_var: Environment variable name (e.g., 'OPENAI_MODEL')
+        default_model: Default model if env var not set
+
+    Returns:
+        Model name from env or default
+    """
+    model = os.getenv(env_var)
+    if model:
+        return model.strip()  # Clean whitespace
+    return default_model
+
 # Import existing providers
 from llms.openai_llm import OpenAILLMProvider
-from llms.claude import ClaudeLLMProvider
-from llms.gemini import GeminiLLMProvider
-from llms.huggingface import HuggingFaceLLMProvider
+from llms.claude import ClaudeProvider
+from llms.gemini import GeminiProvider
+from llms.huggingface import HuggingFaceProvider
 
 
 class SimpleLLMRunner:
@@ -24,9 +40,9 @@ class SimpleLLMRunner:
     def __init__(self):
         self.providers = {
             'openai': OpenAILLMProvider,
-            'claude': ClaudeLLMProvider,
-            'gemini': GeminiLLMProvider,
-            'huggingface': HuggingFaceLLMProvider
+            'claude': ClaudeProvider,
+            'gemini': GeminiProvider,
+            'huggingface': HuggingFaceProvider
         }
 
     def run(self, llm_name: str, prompt: str, system_prompt: str = None,
@@ -42,25 +58,25 @@ class SimpleLLMRunner:
         configs = {
             'openai': {
                 'api_key': os.getenv('OPENAI_API_KEY'),
-                'model_name': 'gpt-4-turbo',
+                'model_name': get_model_from_env('OPENAI_MODEL', 'gpt-4-turbo'),
                 'enable_logging': enable_logging,
                 'enable_evaluation': enable_evaluation
             },
             'claude': {
                 'api_key': os.getenv('ANTHROPIC_API_KEY'),
-                'model_name': 'claude-sonnet-4-20250514',
+                'model_name': get_model_from_env('CLAUDE_MODEL', 'claude-sonnet-4-20250514'),
                 'enable_logging': enable_logging,
                 'enable_evaluation': enable_evaluation
             },
             'gemini': {
                 'api_key': os.getenv('GOOGLE_API_KEY'),
-                'model_name': 'gemini-1.5-pro',
+                'model_name': get_model_from_env('GEMINI_MODEL', 'gemini-1.5-pro'),
                 'enable_logging': enable_logging,
                 'enable_evaluation': enable_evaluation
             },
             'huggingface': {
                 'token': os.getenv('HF_TOKEN'),
-                'model_name': 'deepseek-ai/DeepSeek-R1:novita',
+                'model_name': get_model_from_env('HUGGINGFACE_MODEL', 'deepseek-ai/DeepSeek-R1:novita'),
                 'enable_logging': enable_logging,
                 'enable_evaluation': enable_evaluation
             }

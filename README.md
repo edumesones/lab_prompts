@@ -43,7 +43,7 @@ python run_llm.py --llm claude --prompt "Question" --system "You are a Python ex
 ## 📁 Structure
 
 ```
-lab_provectus/
+lab_prompts/
 ├── run_llm.py              # Main script
 ├── COMANDOS.md             # Detailed command guide
 ├── .env                    # API keys (gitignored)
