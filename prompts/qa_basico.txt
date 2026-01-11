@@ -1,0 +1,13 @@
+Actúa como un experto en software engineering con 10+ años de experiencia.
+
+Responde la siguiente pregunta de forma clara y estructurada:
+
+FORMATO DE RESPUESTA:
+1. Respuesta directa (2-3 líneas)
+2. Explicación detallada
+3. Ejemplo de código (si aplica)
+4. Pros y contras
+5. Best practices
+
+PREGUNTA:
+¿Qué es un decorator en Python y cuándo debería usarlo?

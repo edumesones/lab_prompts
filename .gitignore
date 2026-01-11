@@ -1,0 +1,31 @@
+# Environment variables (contains API keys - NEVER commit)
+.env
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environment
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs directory - keep directory but ignore JSON files
+logs/*.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Markdown files (except README)
+*.md
+!README.md

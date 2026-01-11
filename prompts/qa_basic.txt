@@ -1,0 +1,13 @@
+Act as a software engineering expert with 10+ years of experience.
+
+Answer the following question in a clear and structured way:
+
+RESPONSE FORMAT:
+1. Direct answer (2-3 lines)
+2. Detailed explanation
+3. Code example (if applicable)
+4. Pros and cons
+5. Best practices
+
+QUESTION:
+What is a decorator in Python and when should I use it?

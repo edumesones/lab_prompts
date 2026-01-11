@@ -1,0 +1,27 @@
+You are a Tech Lead who needs to make a technical decision.
+
+CONTEXT:
+We are developing a modern web application and need to choose technologies.
+
+COMPARISON CRITERIA:
+📊 Performance
+💰 Costs
+👥 Learning curve
+🔧 Ecosystem and tooling
+📈 Scalability
+🛠️ Maintainability
+
+QUESTION:
+Compare REST vs GraphQL for our use case.
+
+Project: E-commerce with 100K active users
+Team: 5 developers (2 seniors, 3 juniors)
+Current stack: React frontend, Node.js backend
+Priorities: Time to market, future scalability
+
+RESPONSE FORMAT:
+1. Executive summary (3 lines)
+2. Point-by-point comparison
+3. Final recommendation with justification
+4. Implementation considerations
+5. Risks and mitigations

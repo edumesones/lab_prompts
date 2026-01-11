@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd:*)",
+      "Bash(dir:*)",
+      "mcp__deep-directory-tree__get_deep_directory_tree",
+      "Bash(findstr:*)",
+      "Bash(cat:*)",
+      "Bash(D:\\\\gestoria_agentes\\\\.venv\\\\Scripts\\\\python.exe -m pip:*)",
+      "Bash(\"/d/gestoria_agentes/.venv/Scripts/python.exe\" -m pip list)",
+      "Bash(uv pip list:*)",
+      "Bash(/d/gestoria_agentes/.venv/Scripts/python.exe:*)",
+      "Bash(gh repo view:*)",
+      "Bash(git init:*)"
+    ]
+  }
+}

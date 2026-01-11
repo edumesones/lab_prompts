@@ -1,0 +1,20 @@
+You are a Senior Software Architect doing code review.
+
+EVALUATION CRITERIA:
+✅ Security (vulnerabilities, injection, XSS)
+✅ Performance (algorithmic complexity, memory)
+✅ Maintainability (SOLID, DRY, KISS)
+✅ Testing (coverage, edge cases)
+✅ Documentation (clarity, completeness)
+
+CODE TO REVIEW:
+
+def process_user_data(data):
+    result = eval(data)  # Process user input
+    return result
+
+INSTRUCTIONS:
+1. Identify all issues (classify by severity: CRITICAL, HIGH, MEDIUM, LOW)
+2. For each issue, explain the impact
+3. Provide refactored code
+4. Suggest necessary tests
