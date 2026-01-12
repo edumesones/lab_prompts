@@ -32,9 +32,29 @@ class RAGASEvaluator:
             from ragas import evaluate
             from ragas.metrics import answer_relevancy, faithfulness
             from datasets import Dataset
+            from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+            import os
 
             self.evaluate = evaluate
             self.Dataset = Dataset
+
+            # Configure LLM and embeddings explicitly for RAGAS
+            api_key = os.getenv("OPENAI_API_KEY")
+            if not api_key:
+                logger.warning("⚠️ OPENAI_API_KEY not set - RAGAS evaluation may fail")
+                self.llm = None
+                self.embeddings = None
+            else:
+                # Use modern OpenAI API with explicit configuration
+                self.llm = ChatOpenAI(
+                    model="gpt-3.5-turbo",
+                    api_key=api_key,
+                    temperature=0
+                )
+                self.embeddings = OpenAIEmbeddings(
+                    model="text-embedding-3-small",
+                    api_key=api_key
+                )
 
             # Use available metrics (coherence might not be directly available)
             # We'll use answer_relevancy and faithfulness as proxies
@@ -43,7 +63,7 @@ class RAGASEvaluator:
         except ImportError as e:
             logger.error(
                 f"❌ RAGAS dependencies not installed: {e}\n"
-                "Install with: pip install ragas datasets"
+                "Install with: pip install ragas datasets langchain-openai"
             )
             raise
 
@@ -97,27 +117,63 @@ class RAGASEvaluator:
 
             dataset = self.Dataset.from_dict(data)
 
-            # Evaluar con métricas disponibles
-            results = self.evaluate(dataset, metrics=metrics_to_use)
+            # Evaluar con métricas disponibles y LLM/embeddings explícitos
+            if self.llm and self.embeddings:
+                results = self.evaluate(
+                    dataset,
+                    metrics=metrics_to_use,
+                    llm=self.llm,
+                    embeddings=self.embeddings
+                )
+            else:
+                # Fallback sin configuración explícita (puede fallar)
+                logger.warning("⚠️ Evaluating without explicit LLM/embeddings configuration")
+                results = self.evaluate(dataset, metrics=metrics_to_use)
 
             # Convertir a dict (FIX PRINCIPAL del error .get())
             try:
-                if hasattr(results, 'to_dict'):
-                    results_dict = results.to_dict('records')[0]
+                # RAGAS 0.4.x uses to_pandas() instead of to_dict()
+                if hasattr(results, 'to_pandas'):
+                    df = results.to_pandas()
+                    if len(df) > 0:
+                        results_dict = df.iloc[0].to_dict()
+                    else:
+                        raise ValueError("Empty results from RAGAS evaluation")
+                elif hasattr(results, 'scores'):
+                    # Direct access to scores attribute
+                    results_dict = results.scores.iloc[0].to_dict() if hasattr(results.scores, 'iloc') else dict(results.scores)
                 elif hasattr(results, '__getitem__'):
                     # Fallback: acceso por índice
-                    results_dict = {
-                        "answer_relevancy": float(results["answer_relevancy"][0]) if "answer_relevancy" in results else 0.0,
-                        "faithfulness": float(results["faithfulness"][0]) if "faithfulness" in results else 0.0
-                    }
+                    results_dict = {}
+                    if "answer_relevancy" in results:
+                        val = results["answer_relevancy"]
+                        results_dict["answer_relevancy"] = float(val[0]) if hasattr(val, '__getitem__') else float(val)
+                    if "faithfulness" in results:
+                        val = results["faithfulness"]
+                        results_dict["faithfulness"] = float(val[0]) if hasattr(val, '__getitem__') else float(val)
                 else:
                     raise AttributeError("Cannot convert EvaluationResult to dict")
             except Exception as conv_error:
-                logger.warning(f"⚠️ Error converting results: {conv_error}, trying direct access")
+                logger.warning(f"⚠️ Error converting results: {conv_error}")
+                logger.warning(f"Results type: {type(results)}")
+                if hasattr(results, 'scores'):
+                    logger.warning(f"Scores available: {results.scores}")
+                # Last resort: return default values
                 results_dict = {"answer_relevancy": 0.0}
 
             # Extraer scores disponibles
             relevance_score = float(results_dict.get("answer_relevancy", 0.0))
+
+            # Verificar si la evaluación realmente funcionó
+            if relevance_score == 0.0 and "answer_relevancy" not in results_dict:
+                logger.warning("⚠️ RAGAS evaluation produced no valid scores - check OpenAI API key and connectivity")
+                return {
+                    "relevance": None,
+                    "coherence": None,
+                    "overall_score": None,
+                    "error": "RAGAS evaluation failed - no valid scores produced. Check OpenAI API key and logs.",
+                    "metrics_used": [],
+                }
 
             # Faithfulness solo si se evaluó
             if has_context and "faithfulness" in results_dict:
