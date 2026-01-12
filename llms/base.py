@@ -26,6 +26,8 @@ class LLMProvider(ABC):
         # Logging configuration
         self.enable_logging = config.get("enable_logging", True)
         self.enable_evaluation = config.get("enable_evaluation", False)
+        self.eval_context = config.get("eval_context")
+        self.eval_ground_truth = config.get("eval_ground_truth")
         self.logger = None
 
         if self.enable_logging:
@@ -149,7 +151,12 @@ class LLMProvider(ABC):
                 if self.enable_evaluation and log_file:
                     try:
                         from .evaluator import evaluate_response
-                        eval_results = evaluate_response(prompt, response)
+                        eval_results = evaluate_response(
+                            prompt,
+                            response,
+                            context=self.eval_context,
+                            ground_truth=self.eval_ground_truth
+                        )
                         self.logger.add_evaluation_metrics(log_file, eval_results)
                     except Exception as e:
                         from loguru import logger as log

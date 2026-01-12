@@ -68,52 +68,75 @@ class RAGASEvaluator:
             raise
 
     def evaluate_response(
-        self, prompt: str, response: str, context: str | None = None
+        self,
+        prompt: str,
+        response: str,
+        context: str | None = None,
+        ground_truth: str | None = None
     ) -> dict[str, Any]:
         """
         Evaluate response using RAGAS metrics (adaptive based on available data).
 
-        Metrics used:
+        Metrics used (adaptive):
         - answer_relevancy: Always evaluated (measures if response addresses prompt)
         - faithfulness: Only if context provided (checks for hallucinations)
+        - answer_correctness: Only if ground_truth provided (measures accuracy)
+        - context_precision: Only if both context + ground_truth provided (RAG quality)
 
         Args:
             prompt: User prompt/question
             response: LLM generated response
             context: Optional context. If provided, enables faithfulness metric.
+            ground_truth: Optional reference answer. If provided, enables answer_correctness.
 
         Returns:
             Dict with evaluation scores:
             {
                 "relevance": float,
-                "coherence": float | None (None if no context),
+                "coherence": float | None (faithfulness score),
+                "correctness": float | None (answer_correctness score),
+                "context_quality": float | None (context_precision score),
                 "overall_score": float,
                 "metrics_used": list[str]
             }
 
-        Note: Without context, only relevance can be measured. Overall score
-              will equal relevance score in this case.
+        Note: Metrics adapt based on available data. See METRIC_SELECTION.md for details.
         """
         try:
-            from ragas.metrics import answer_relevancy, faithfulness
+            from ragas.metrics import (
+                answer_relevancy,
+                faithfulness,
+                answer_correctness,
+                context_precision
+            )
 
-            # Determinar métricas disponibles
-            metrics_to_use = [answer_relevancy]  # Siempre disponible
+            # Determine available metrics based on provided data
+            metrics_to_use = [answer_relevancy]  # Always available
             has_context = context and context.strip()
+            has_ground_truth = ground_truth and ground_truth.strip()
 
-            # Crear dataset base
+            # Build dataset base
             data = {
                 "question": [prompt],
                 "answer": [response],
             }
 
-            # Agregar context solo si existe
+            # Add context if exists (enables faithfulness and context_precision)
             if has_context:
                 data["contexts"] = [[context]]
                 metrics_to_use.append(faithfulness)
             else:
-                # RAGAS puede requerir contexts aunque sea vacío
+                # RAGAS requires contexts even if empty
                 data["contexts"] = [[""]]
+
+            # Add ground_truth if exists (enables answer_correctness)
+            if has_ground_truth:
+                data["ground_truth"] = [ground_truth]
+                metrics_to_use.append(answer_correctness)
+
+                # Add context_precision only if BOTH context and ground_truth exist
+                if has_context:
+                    metrics_to_use.append(context_precision)
 
             dataset = self.Dataset.from_dict(data)
 
@@ -161,35 +184,66 @@ class RAGASEvaluator:
                 # Last resort: return default values
                 results_dict = {"answer_relevancy": 0.0}
 
-            # Extraer scores disponibles
+            # Extract available scores
             relevance_score = float(results_dict.get("answer_relevancy", 0.0))
 
-            # Verificar si la evaluación realmente funcionó
+            # Verify evaluation worked
             if relevance_score == 0.0 and "answer_relevancy" not in results_dict:
                 logger.warning("⚠️ RAGAS evaluation produced no valid scores - check OpenAI API key and connectivity")
                 return {
                     "relevance": None,
                     "coherence": None,
+                    "correctness": None,
+                    "context_quality": None,
                     "overall_score": None,
                     "error": "RAGAS evaluation failed - no valid scores produced. Check OpenAI API key and logs.",
                     "metrics_used": [],
                 }
 
-            # Faithfulness solo si se evaluó
+            # Extract scores for metrics that were evaluated
+            coherence_score = None
+            correctness_score = None
+            context_quality_score = None
+            scores_for_average = [relevance_score]
+            metrics_used = ["answer_relevancy"]
+
+            # Faithfulness (coherence) - only if context provided
             if has_context and "faithfulness" in results_dict:
                 coherence_score = float(results_dict.get("faithfulness", 0.0))
-                overall_score = (relevance_score + coherence_score) / 2
-                metrics_used = ["answer_relevancy", "faithfulness"]
-                logger.info(f"📊 Evaluation complete: relevancy={relevance_score:.3f}, faithfulness={coherence_score:.3f}")
-            else:
-                coherence_score = None
-                overall_score = relevance_score
-                metrics_used = ["answer_relevancy"]
-                logger.info(f"📊 Evaluation complete (no context): relevancy={relevance_score:.3f}")
+                scores_for_average.append(coherence_score)
+                metrics_used.append("faithfulness")
+
+            # Answer correctness - only if ground_truth provided
+            if has_ground_truth and "answer_correctness" in results_dict:
+                correctness_score = float(results_dict.get("answer_correctness", 0.0))
+                scores_for_average.append(correctness_score)
+                metrics_used.append("answer_correctness")
+
+            # Context precision - only if both context and ground_truth provided
+            if has_context and has_ground_truth and "context_precision" in results_dict:
+                context_quality_score = float(results_dict.get("context_precision", 0.0))
+                scores_for_average.append(context_quality_score)
+                metrics_used.append("context_precision")
+
+            # Calculate overall score as average of available metrics
+            overall_score = sum(scores_for_average) / len(scores_for_average)
+
+            # Log results
+            log_parts = [f"relevancy={relevance_score:.3f}"]
+            if coherence_score is not None:
+                log_parts.append(f"faithfulness={coherence_score:.3f}")
+            if correctness_score is not None:
+                log_parts.append(f"correctness={correctness_score:.3f}")
+            if context_quality_score is not None:
+                log_parts.append(f"context_precision={context_quality_score:.3f}")
+
+            logger.info(f"📊 Evaluation complete: {', '.join(log_parts)}")
 
             return {
                 "relevance": round(relevance_score, 3),
                 "coherence": round(coherence_score, 3) if coherence_score is not None else None,
+                "correctness": round(correctness_score, 3) if correctness_score is not None else None,
+                "context_quality": round(context_quality_score, 3) if context_quality_score is not None else None,
                 "overall_score": round(overall_score, 3),
                 "metrics_used": metrics_used,
             }
@@ -199,31 +253,42 @@ class RAGASEvaluator:
             return {
                 "relevance": None,
                 "coherence": None,
+                "correctness": None,
+                "context_quality": None,
                 "overall_score": None,
                 "error": str(e),
                 "metrics_used": [],
             }
 
 
-def evaluate_response(prompt: str, response: str) -> dict[str, Any]:
+def evaluate_response(
+    prompt: str,
+    response: str,
+    context: str | None = None,
+    ground_truth: str | None = None
+) -> dict[str, Any]:
     """
     Convenience function to evaluate a response.
 
     Args:
         prompt: User prompt
         response: LLM response
+        context: Optional context for faithfulness evaluation
+        ground_truth: Optional ground truth answer for correctness evaluation
 
     Returns:
         Evaluation results dict
     """
     try:
         evaluator = RAGASEvaluator()
-        return evaluator.evaluate_response(prompt, response)
+        return evaluator.evaluate_response(prompt, response, context, ground_truth)
     except Exception as e:
         logger.warning(f"⚠️ Could not initialize evaluator: {e}")
         return {
             "relevance": None,
             "coherence": None,
+            "correctness": None,
+            "context_quality": None,
             "overall_score": None,
             "error": f"Evaluator initialization failed: {str(e)}",
             "metrics_used": [],
