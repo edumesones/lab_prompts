@@ -69,8 +69,13 @@ MODEL_PRICING = {
 
     # HuggingFace (free tier or usage-based)
     "deepseek-ai/DeepSeek-R1:novita": {
-        "input": 0.0,
-        "output": 0.0
+        "input": 0.7,
+        "output": 2.5
+    },
+
+    "meta-llama/Llama-3.1-8B-Instruct:novita": {
+        "input": 0.02,
+        "output": 0.05
     },
 
     # Default fallback for unknown models
